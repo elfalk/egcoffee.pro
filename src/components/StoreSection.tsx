@@ -1,0 +1,962 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { motion } from 'motion/react';
+import {
+  ShoppingBag,
+  BookOpen,
+  GraduationCap,
+  Package,
+  Search,
+  FileText,
+  Calendar,
+  Tag,
+  ArrowRight,
+  Share2,
+  Check,
+  Sparkles,
+  ExternalLink,
+} from 'lucide-react';
+import { CatalogItem, Language } from '../types/coffee';
+import { getOptimizedCoverSources } from '../utils/imageOptimization';
+import {
+  SITE_URL,
+  getCatalogItemPath,
+  getCatalogItemSlug,
+  matchesCatalogItemSlug,
+} from '../utils/slugs';
+import { trackViewContent } from '../utils/analytics';
+
+export type StoreFilter = 'all' | 'books' | 'courses' | 'other';
+
+interface StoreSectionProps {
+  catalogItems: CatalogItem[];
+  lang: Language;
+  onBuyItem: (item: CatalogItem) => void;
+  activeSlug?: string;
+  initialFilter?: StoreFilter;
+  routePrefix?: 'marckt' | 'store' | 'books' | 'courses';
+  onNavigatePath?: (path: string) => void;
+}
+
+export const StoreSection: React.FC<StoreSectionProps> = ({
+  catalogItems,
+  lang,
+  onBuyItem,
+  activeSlug,
+  initialFilter = 'all',
+  routePrefix = 'marckt',
+  onNavigatePath,
+}) => {
+  const [filter, setFilter] = useState<StoreFilter>(initialFilter);
+  const [subCategory, setSubCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [copiedSlug, setCopiedSlug] = useState(false);
+
+  useEffect(() => {
+    setFilter(initialFilter);
+  }, [initialFilter]);
+
+  const activeItem = useMemo(() => {
+    if (!activeSlug) return null;
+    return (
+      catalogItems.find((item) => matchesCatalogItemSlug(item, activeSlug)) ||
+      null
+    );
+  }, [catalogItems, activeSlug]);
+
+  useEffect(() => {
+    if (activeItem) {
+      const t = String(activeItem.item_type || activeItem.type || 'book').toLowerCase();
+      trackViewContent({
+        id: activeItem.id,
+        name: activeItem.title_ar || activeItem.title_en || '',
+        category:
+          t === 'bundle'
+            ? 'bundle'
+            : t === 'course'
+            ? 'course'
+            : t === 'book'
+            ? 'book'
+            : 'product',
+        price: Number(activeItem.price ?? activeItem.price_egp ?? 0),
+        currency: activeItem.currency || 'EGP',
+        slug: getCatalogItemSlug(activeItem),
+      });
+    }
+  }, [activeItem]);
+
+  const otherCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of catalogItems) {
+      const t = String(item.item_type || item.type || 'book').toLowerCase();
+      if (t !== 'book' && t !== 'bundle' && t !== 'course' && item.category_ar) {
+        set.add(item.category_ar.trim());
+      }
+    }
+    return Array.from(set);
+  }, [catalogItems]);
+
+  const filteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return catalogItems.filter((item) => {
+      const t = String(item.item_type || item.type || 'book').toLowerCase();
+      if (filter === 'books' && t !== 'book' && t !== 'bundle') return false;
+      if (filter === 'courses' && t !== 'course') return false;
+      if (
+        filter === 'other' &&
+        (t === 'book' || t === 'bundle' || t === 'course')
+      ) {
+        return false;
+      }
+
+      if (
+        filter === 'other' &&
+        subCategory !== 'all' &&
+        (item.category_ar || '').trim() !== subCategory
+      ) {
+        return false;
+      }
+
+      if (!q) return true;
+      return (
+        item.title_ar.toLowerCase().includes(q) ||
+        (item.title_en || '').toLowerCase().includes(q) ||
+        (item.description_ar || '').toLowerCase().includes(q) ||
+        (item.subtitle_ar || '').toLowerCase().includes(q) ||
+        (item.category_ar || '').toLowerCase().includes(q) ||
+        (item.unit || '').toLowerCase().includes(q)
+      );
+    });
+  }, [catalogItems, filter, subCategory, searchQuery]);
+
+  const counts = useMemo(() => {
+    let booksCount = 0;
+    let coursesCount = 0;
+    let otherCount = 0;
+    for (const item of catalogItems) {
+      const t = String(item.item_type || item.type || 'book').toLowerCase();
+      if (t === 'book' || t === 'bundle') booksCount++;
+      else if (t === 'course') coursesCount++;
+      else otherCount++;
+    }
+    return {
+      all: catalogItems.length,
+      books: booksCount,
+      courses: coursesCount,
+      other: otherCount,
+    };
+  }, [catalogItems]);
+
+  const handleOpenItem = (item: CatalogItem) => {
+    const targetPath = getCatalogItemPath(item, routePrefix);
+    if (onNavigatePath) {
+      onNavigatePath(targetPath);
+    } else {
+      window.history.pushState({}, '', targetPath);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToListing = () => {
+    const listingPath = `/${routePrefix}`;
+    if (onNavigatePath) {
+      onNavigatePath(listingPath);
+    } else {
+      window.history.pushState({}, '', listingPath);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCopyItemLink = (item: CatalogItem) => {
+    const url = `${SITE_URL}${getCatalogItemPath(item, routePrefix)}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    setCopiedSlug(true);
+    setTimeout(() => setCopiedSlug(false), 2000);
+  };
+
+  // 1. Not Found state when an invalid slug is requested
+  if (activeSlug && catalogItems.length > 0 && !activeItem) {
+    return (
+      <section className="py-16 md:py-24 bg-[var(--bg)]">
+        <div className="max-w-2xl mx-auto px-6">
+          <div className="surface-card p-8 sm:p-12 text-center space-y-5">
+            <Package
+              size={32}
+              strokeWidth={1.5}
+              className="text-[var(--accent)] mx-auto"
+            />
+            <h1 className="font-display text-2xl sm:text-3xl font-semibold text-[var(--text)]">
+              {lang === 'ar'
+                ? 'هذا المنتج أو الكتاب غير متوفر بالرابط الحالي'
+                : 'Item Not Found'}
+            </h1>
+            <p className="text-sm text-[var(--muted)] leading-relaxed">
+              {lang === 'ar'
+                ? 'ربما تم تحديث رابط هذا الإصدار في لوحة التحكم أو نقله إلى قسم آخر. يمكنك تصفح كافة الكتب والدورات والمنتجات المتاحة في المتجر.'
+                : 'This item link may have been updated or moved. Browse all available books, courses, and products in our store.'}
+            </p>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleBackToListing}
+                className="btn-primary px-6 py-3 text-sm font-medium inline-flex items-center gap-2 cursor-pointer"
+              >
+                <ArrowRight
+                  size={16}
+                  className={lang === 'en' ? 'rotate-180' : ''}
+                />
+                <span>
+                  {lang === 'ar' ? 'العودة إلى المتجر' : 'Back to Store'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // 2. Dedicated Shareable Single Item Detail Page (/marckt/:slug, /books/:slug, /courses/:slug, /store/:slug)
+  if (activeItem) {
+    const t = String(
+      activeItem.item_type || activeItem.type || 'book'
+    ).toLowerCase();
+    const isBundle = t === 'bundle';
+    const isCourse = t === 'course';
+    const isBook = t === 'book';
+
+    const typeBadgeAr = isBundle
+      ? 'الباقة الموسوعية الكاملة'
+      : isCourse
+      ? 'دورة تدريبية عملية'
+      : isBook
+      ? 'كتاب رقمي مرجعي'
+      : activeItem.category_ar || 'منتج متخصص';
+    const typeBadgeEn = isBundle
+      ? 'Complete Bundle'
+      : isCourse
+      ? 'Training Course'
+      : isBook
+      ? 'Reference Book'
+      : activeItem.category_ar || 'Specialized Product';
+
+    const coverSources = getOptimizedCoverSources(activeItem.cover_image);
+    const relatedItems = catalogItems
+      .filter((it) => it.id !== activeItem.id)
+      .slice(0, 3);
+
+    return (
+      <section className="py-10 md:py-16 bg-[var(--bg)]">
+        <div className="max-w-[1140px] mx-auto px-6 space-y-10">
+          {/* Top Breadcrumb & Share Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
+            <button
+              type="button"
+              onClick={handleBackToListing}
+              className="btn-secondary text-xs px-4 py-2 inline-flex items-center gap-2 cursor-pointer"
+            >
+              <ArrowRight
+                size={15}
+                strokeWidth={1.5}
+                className={lang === 'en' ? 'rotate-180' : ''}
+              />
+              <span>
+                {lang === 'ar'
+                  ? 'العودة إلى قائمة المتجر'
+                  : 'Back to Store Catalog'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleCopyItemLink(activeItem)}
+              className="btn-secondary text-xs px-4 py-2 inline-flex items-center gap-2 cursor-pointer"
+            >
+              {copiedSlug ? (
+                <>
+                  <Check size={14} className="text-emerald-600" />
+                  <span>
+                    {lang === 'ar' ? 'تم نسخ الرابط المباشر' : 'Direct Link Copied'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Share2 size={14} />
+                  <span>
+                    {lang === 'ar' ? 'مشاركة رابط الصفحة' : 'Share Page URL'}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Main Product / Book Detail Card */}
+          <div className="surface-card p-6 sm:p-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Cover Column */}
+              <div className="lg:col-span-5">
+                {activeItem.cover_image ? (
+                  <div className="w-full h-80 sm:h-96 rounded-[16px] border border-[var(--line)] bg-[var(--bg-soft)] p-4 flex items-center justify-center overflow-hidden">
+                    <picture className="w-full h-full flex items-center justify-center">
+                      {coverSources.webpSrcSet && (
+                        <source
+                          type="image/webp"
+                          srcSet={coverSources.webpSrcSet}
+                          sizes="(max-width: 640px) 300px, 420px"
+                        />
+                      )}
+                      <img
+                        src={
+                          coverSources.webpDefaultSrc ||
+                          coverSources.fallbackSrc
+                        }
+                        alt={
+                          lang === 'ar'
+                            ? activeItem.title_ar
+                            : activeItem.title_en
+                        }
+                        width={340}
+                        height={453}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-contain rounded-[10px] drop-shadow-md"
+                      />
+                    </picture>
+                  </div>
+                ) : (
+                  <div className="w-full h-72 rounded-[16px] border border-[var(--line)] bg-[var(--bg-soft)] p-6 flex flex-col justify-between">
+                    <span className="text-xs font-medium text-[var(--accent)]">
+                      {lang === 'ar' ? typeBadgeAr : typeBadgeEn}
+                    </span>
+                    <div className="font-display text-xl font-semibold text-[var(--text)]">
+                      {lang === 'ar'
+                        ? activeItem.title_ar
+                        : activeItem.title_en}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Details Column */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="space-y-2.5">
+                  <div className="inline-flex items-center gap-2 text-xs font-medium text-[var(--accent)]">
+                    {isCourse ? (
+                      <GraduationCap size={17} strokeWidth={1.5} />
+                    ) : isBook || isBundle ? (
+                      <BookOpen size={17} strokeWidth={1.5} />
+                    ) : (
+                      <Package size={17} strokeWidth={1.5} />
+                    )}
+                    <span>{lang === 'ar' ? typeBadgeAr : typeBadgeEn}</span>
+                  </div>
+
+                  <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--text)] leading-tight">
+                    {lang === 'ar' ? activeItem.title_ar : activeItem.title_en}
+                  </h1>
+
+                  {activeItem.title_en &&
+                    activeItem.title_en !== activeItem.title_ar &&
+                    lang === 'ar' && (
+                      <div className="text-sm font-medium text-[var(--muted)]">
+                        {activeItem.title_en}
+                      </div>
+                    )}
+                </div>
+
+                <p className="text-sm sm:text-base text-[var(--text)] leading-relaxed whitespace-pre-line">
+                  {lang === 'ar'
+                    ? activeItem.description_ar || activeItem.subtitle_ar
+                    : activeItem.description_en || activeItem.subtitle_en}
+                </p>
+
+                {/* Highlights if present */}
+                {((lang === 'ar' &&
+                  activeItem.highlights_ar &&
+                  activeItem.highlights_ar.length > 0) ||
+                  (lang === 'en' &&
+                    activeItem.highlights_en &&
+                    activeItem.highlights_en.length > 0)) && (
+                  <div className="rounded-[12px] bg-[var(--bg-soft)] p-4 border border-[var(--line)] space-y-2">
+                    <div className="text-xs font-semibold text-[var(--accent)] flex items-center gap-1.5">
+                      <Sparkles size={14} />
+                      <span>
+                        {lang === 'ar'
+                          ? 'أبرز المحاور والمميزات:'
+                          : 'Key Highlights:'}
+                      </span>
+                    </div>
+                    <ul className="space-y-1.5 text-xs sm:text-sm text-[var(--muted)]">
+                      {(lang === 'ar'
+                        ? activeItem.highlights_ar || []
+                        : activeItem.highlights_en || []
+                      ).map((hl, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-[var(--accent)] font-bold">•</span>
+                          <span>{hl}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Meta Attributes */}
+                <div className="flex flex-wrap items-center gap-6 py-4 border-y border-[var(--line)] text-xs sm:text-sm text-[var(--muted)]">
+                  {activeItem.pages && activeItem.pages > 0 ? (
+                    <div className="inline-flex items-center gap-2">
+                      <FileText
+                        size={16}
+                        strokeWidth={1.5}
+                        className="text-[var(--accent)]"
+                      />
+                      <span>
+                        {lang === 'ar' ? 'عدد الصفحات:' : 'Pages:'}{' '}
+                        <strong className="text-[var(--text)]">
+                          {activeItem.pages}{' '}
+                          {lang === 'ar' ? 'صفحة' : 'pages'}
+                        </strong>
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {activeItem.course_schedule ? (
+                    <div className="inline-flex items-center gap-2">
+                      <Calendar
+                        size={16}
+                        strokeWidth={1.5}
+                        className="text-[var(--accent)]"
+                      />
+                      <span>{activeItem.course_schedule}</span>
+                    </div>
+                  ) : null}
+
+                  {activeItem.unit ? (
+                    <div className="inline-flex items-center gap-2">
+                      <Package
+                        size={16}
+                        strokeWidth={1.5}
+                        className="text-[var(--accent)]"
+                      />
+                      <span>
+                        {lang === 'ar' ? 'الوحدة / العبوة:' : 'Unit:'}{' '}
+                        <strong className="text-[var(--text)]">
+                          {activeItem.unit}
+                        </strong>
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Price & Direct Order CTA */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                  <div>
+                    <div className="text-xs text-[var(--muted)]">
+                      {lang === 'ar' ? 'السعر الرسمي:' : 'Official Price:'}
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="font-display text-3xl font-bold text-[var(--text)]">
+                        {(
+                          activeItem.price ??
+                          activeItem.price_egp ??
+                          0
+                        ).toLocaleString()}
+                      </span>
+                      <span className="text-sm font-semibold text-[var(--accent)]">
+                        {lang === 'ar'
+                          ? activeItem.currency && activeItem.currency !== 'EGP'
+                            ? activeItem.currency
+                            : 'ج.م'
+                          : activeItem.currency || 'EGP'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onBuyItem(activeItem)}
+                    className="uiverse-btn py-3.5 px-8 text-sm font-semibold cursor-pointer"
+                  >
+                    <ShoppingBag size={18} strokeWidth={1.5} />
+                    <span>
+                      {lang === 'ar'
+                        ? 'شراء وطلب المنتج الآن'
+                        : 'Purchase & Order Now'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Related Items */}
+          {relatedItems.length > 0 && (
+            <div className="space-y-4 pt-4">
+              <h2 className="font-display text-lg sm:text-xl font-semibold text-[var(--text)]">
+                {lang === 'ar'
+                  ? 'إصدارات ومنتجات أخرى قد تهمك'
+                  : 'Related Books & Products'}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {relatedItems.map((rel) => {
+                  const relPath = getCatalogItemPath(rel, routePrefix);
+                  return (
+                    <a
+                      key={rel.id}
+                      href={relPath}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleOpenItem(rel);
+                      }}
+                      className="surface-card p-5 flex flex-col justify-between gap-3 hover:border-[var(--accent)] transition-colors"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="font-display text-base font-semibold text-[var(--text)] line-clamp-2">
+                          {lang === 'ar' ? rel.title_ar : rel.title_en}
+                        </div>
+                        <p className="text-xs text-[var(--muted)] line-clamp-2">
+                          {lang === 'ar'
+                            ? rel.description_ar || rel.subtitle_ar
+                            : rel.description_en || rel.subtitle_en}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-[var(--line)] text-xs">
+                        <span className="font-bold text-[var(--accent)]">
+                          {(rel.price ?? rel.price_egp ?? 0).toLocaleString()}{' '}
+                          {lang === 'ar' ? 'ج.م' : 'EGP'}
+                        </span>
+                        <span className="text-[var(--muted)] inline-flex items-center gap-1">
+                          <span>
+                            {lang === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+                          </span>
+                          <ExternalLink size={12} />
+                        </span>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="py-12 md:py-20 bg-[var(--bg)]">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="max-w-[1200px] mx-auto px-6 space-y-8"
+      >
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div className="space-y-2 max-w-3xl">
+            <div className="inline-flex items-center gap-2 text-xs font-medium text-[var(--accent)]">
+              <ShoppingBag size={18} strokeWidth={1.5} />
+              <span>
+                {lang === 'ar'
+                  ? 'متجر تجـــارة القهـــوة المصـــرية الرسمي'
+                  : 'Official Egyptian Coffee Trade Store'}
+              </span>
+            </div>
+            <h1 className="font-display text-2xl md:text-3xl font-semibold text-[var(--text)]">
+              {routePrefix === 'books'
+                ? lang === 'ar'
+                  ? 'المكتبة الرقمية — سلسلة الكتب السبعة والباقة الشاملة'
+                  : 'Digital Library — The 7 Reference Books & Complete Bundle'
+                : lang === 'ar'
+                ? 'متجرنا الشامل — الكتب، الدورات التدريبية، والمنتجات المتخصصة'
+                : 'Our Official Store — Reference Books, Courses & Specialized Products'}
+            </h1>
+            <p className="text-xs sm:text-sm text-[var(--muted)]">
+              {lang === 'ar'
+                ? 'اختر أي كتاب رقمي، باقة شاملة، دورة تدريبية، أو منتج متخصص واطلبه مباشرة ليصلك رقم الطلب الفوري.'
+                : 'Select any reference book, complete bundle, training course, or specialized coffee product to receive your instant Order Number.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Filter Tabs & Search */}
+        <div className="surface-card p-5 space-y-4">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  {
+                    id: 'all',
+                    ar: `جميع المنتجات (${counts.all})`,
+                    en: `All Items (${counts.all})`,
+                    icon: ShoppingBag,
+                  },
+                  {
+                    id: 'books',
+                    ar: `الكتب والباقات (${counts.books})`,
+                    en: `Books & Bundles (${counts.books})`,
+                    icon: BookOpen,
+                  },
+                  {
+                    id: 'courses',
+                    ar: `الدورات التدريبية (${counts.courses})`,
+                    en: `Courses (${counts.courses})`,
+                    icon: GraduationCap,
+                  },
+                  {
+                    id: 'other',
+                    ar: `المنتجات الأخرى (${counts.other})`,
+                    en: `Other Products (${counts.other})`,
+                    icon: Package,
+                  },
+                ] as const
+              ).map((tab) => {
+                const Icon = tab.icon;
+                const active = filter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setFilter(tab.id);
+                      setSubCategory('all');
+                    }}
+                    className={`text-xs shrink-0 inline-flex items-center gap-1.5 ${
+                      active ? 'chip-pill-active' : 'chip-pill'
+                    }`}
+                  >
+                    <Icon size={15} strokeWidth={1.5} />
+                    <span>{lang === 'ar' ? tab.ar : tab.en}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="relative w-full lg:w-80 flex items-center">
+              <Search
+                size={18}
+                strokeWidth={1.5}
+                className="text-[var(--accent)] absolute start-3.5 pointer-events-none"
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label={
+                  lang === 'ar'
+                    ? 'ابحث في الكتب والدورات والمنتجات'
+                    : 'Search books, courses, products'
+                }
+                placeholder={
+                  lang === 'ar'
+                    ? 'ابحث في الكتب والدورات والمنتجات...'
+                    : 'Search books, courses, products...'
+                }
+                className="input-field ps-10 pe-4 py-2.5 text-xs sm:text-sm"
+              />
+            </div>
+          </div>
+
+          {filter === 'other' && otherCategories.length > 0 && (
+            <div className="pt-3 border-t border-[var(--line)] flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-[var(--muted)] me-1">
+                {lang === 'ar' ? 'تصنيف المنتج:' : 'Category:'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSubCategory('all')}
+                className={`text-xs ${
+                  subCategory === 'all' ? 'chip-pill-active' : 'chip-pill'
+                }`}
+              >
+                {lang === 'ar' ? 'الكل' : 'All'}
+              </button>
+              {otherCategories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSubCategory(cat)}
+                  className={`text-xs ${
+                    subCategory === cat ? 'chip-pill-active' : 'chip-pill'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Store Grid */}
+        {filteredItems.length === 0 ? (
+          <div className="surface-card p-12 text-center space-y-3">
+            <Package
+              size={22}
+              strokeWidth={1.5}
+              className="text-[var(--accent)] mx-auto"
+            />
+            <div className="font-display text-lg font-semibold text-[var(--text)]">
+              {lang === 'ar'
+                ? 'لا توجد منتجات في هذا القسم حالياً'
+                : 'No products found in this category right now'}
+            </div>
+            <p className="text-xs text-[var(--muted)] max-w-md mx-auto">
+              {lang === 'ar'
+                ? 'يمكنك تصفح جميع الأقسام الأخرى أو التواصل معنا مباشرة لطلب أي منتج أو استشارة خاصة.'
+                : 'Browse other categories or contact us directly for custom requests.'}
+            </p>
+            {filter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilter('all');
+                  setSubCategory('all');
+                }}
+                className="btn-secondary text-xs px-5 py-2 mt-2"
+              >
+                {lang === 'ar' ? 'عرض جميع المنتجات' : 'Show All Products'}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredItems.map((item) => {
+              const t = String(item.item_type || item.type || 'book').toLowerCase();
+              const isBundle = t === 'bundle';
+              const isCourse = t === 'course';
+              const isBook = t === 'book';
+
+              const typeBadgeAr = isBundle
+                ? 'الباقة الموسوعية الكاملة'
+                : isCourse
+                ? 'دورة تدريبية عملية'
+                : isBook
+                ? 'كتاب رقمي مرجعي'
+                : item.category_ar || 'منتج متخصص';
+              const typeBadgeEn = isBundle
+                ? 'Complete Bundle'
+                : isCourse
+                ? 'Training Course'
+                : isBook
+                ? 'Reference Book'
+                : item.category_ar || 'Specialized Product';
+
+              const coverSources = getOptimizedCoverSources(item.cover_image);
+              const itemHref = getCatalogItemPath(item, routePrefix);
+
+              return (
+                <div
+                  key={item.id}
+                  className="surface-card p-6 flex flex-col justify-between space-y-5"
+                >
+                  <div className="space-y-4">
+                    <a
+                      href={itemHref}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleOpenItem(item);
+                      }}
+                      className="block group"
+                    >
+                      {item.cover_image ? (
+                        <div
+                          className={`w-full ${
+                            isBook || isBundle ? 'h-72 sm:h-80' : 'h-60'
+                          } rounded-[12px] border border-[var(--line)] bg-[var(--bg-soft)] p-3 flex items-center justify-center overflow-hidden`}
+                        >
+                          <picture className="w-full h-full flex items-center justify-center">
+                            {coverSources.webpSrcSet && (
+                              <source
+                                type="image/webp"
+                                srcSet={coverSources.webpSrcSet}
+                                sizes="(max-width: 640px) 280px, 340px"
+                              />
+                            )}
+                            <img
+                              src={
+                                coverSources.webpDefaultSrc ||
+                                coverSources.fallbackSrc
+                              }
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                if (
+                                  coverSources.fallbackSrc &&
+                                  target.src !== coverSources.fallbackSrc
+                                ) {
+                                  target.src = coverSources.fallbackSrc;
+                                }
+                              }}
+                              alt={lang === 'ar' ? item.title_ar : item.title_en}
+                              width={280}
+                              height={373}
+                              loading="lazy"
+                              decoding="async"
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-contain rounded-[8px] drop-shadow-sm transition-transform duration-300 group-hover:scale-[1.03]"
+                            />
+                          </picture>
+                        </div>
+                      ) : (
+                        <div className="w-full h-44 rounded-[12px] border border-[var(--line)] bg-[var(--bg-soft)] p-5 flex flex-col justify-between">
+                          <div className="flex items-center justify-between text-xs text-[var(--muted)]">
+                            <span className="font-medium text-[var(--accent)]">
+                              {lang === 'ar' ? typeBadgeAr : typeBadgeEn}
+                            </span>
+                            <img
+                              src="/media/logo-96w.webp"
+                              alt="Egyptian Coffee Trade"
+                              width={28}
+                              height={28}
+                              loading="lazy"
+                              decoding="async"
+                              referrerPolicy="no-referrer"
+                              className="w-7 h-7 object-contain"
+                            />
+                          </div>
+                          <div className="font-display text-base font-semibold text-[var(--text)] line-clamp-2">
+                            {lang === 'ar' ? item.title_ar : item.title_en}
+                          </div>
+                        </div>
+                      )}
+                    </a>
+
+                    <div className="space-y-2">
+                      <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--accent)]">
+                        {isCourse ? (
+                          <GraduationCap size={15} strokeWidth={1.5} />
+                        ) : isBook || isBundle ? (
+                          <BookOpen size={15} strokeWidth={1.5} />
+                        ) : (
+                          <Package size={15} strokeWidth={1.5} />
+                        )}
+                        <span>{lang === 'ar' ? typeBadgeAr : typeBadgeEn}</span>
+                      </div>
+
+                      <h3 className="font-display text-xl font-semibold text-[var(--text)]">
+                        <a
+                          href={itemHref}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleOpenItem(item);
+                          }}
+                          className="hover:text-[var(--accent)] transition-colors"
+                        >
+                          {lang === 'ar' ? item.title_ar : item.title_en}
+                        </a>
+                      </h3>
+
+                      {item.title_en &&
+                        item.title_en !== item.title_ar &&
+                        lang === 'ar' && (
+                          <div className="text-xs font-medium text-[var(--muted)]">
+                            {item.title_en}
+                          </div>
+                        )}
+
+                      <p className="text-xs sm:text-sm text-[var(--muted)] line-clamp-3">
+                        {lang === 'ar'
+                          ? item.description_ar || item.subtitle_ar
+                          : item.description_en || item.subtitle_en}
+                      </p>
+                    </div>
+
+                    {/* Meta info */}
+                    <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-[var(--muted)]">
+                      {item.pages && item.pages > 0 ? (
+                        <div className="inline-flex items-center gap-1.5">
+                          <FileText size={15} strokeWidth={1.5} />
+                          <span>
+                            {item.pages} {lang === 'ar' ? 'صفحة' : 'pages'}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {item.course_schedule ? (
+                        <div className="inline-flex items-center gap-1.5">
+                          <Calendar size={15} strokeWidth={1.5} />
+                          <span>{item.course_schedule}</span>
+                        </div>
+                      ) : null}
+
+                      {item.unit ? (
+                        <div className="inline-flex items-center gap-1.5 font-medium text-[var(--text)]">
+                          <Package
+                            size={15}
+                            strokeWidth={1.5}
+                            className="text-[var(--accent)]"
+                          />
+                          <span>
+                            {lang === 'ar' ? 'الوحدة / العبوة:' : 'Unit:'}{' '}
+                            {item.unit}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Price & Actions */}
+                  <div className="pt-4 border-t border-[var(--line)] space-y-3">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xs text-[var(--muted)] inline-flex items-center gap-1">
+                        <Tag
+                          size={14}
+                          strokeWidth={1.5}
+                          className="text-[var(--accent)]"
+                        />
+                        <span>{lang === 'ar' ? 'السعر:' : 'Price:'}</span>
+                      </span>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-display text-2xl font-semibold text-[var(--text)]">
+                          {(item.price ?? item.price_egp ?? 0).toLocaleString()}
+                        </span>
+                        <span className="text-xs font-medium text-[var(--accent)]">
+                          {lang === 'ar'
+                            ? item.currency && item.currency !== 'EGP'
+                              ? item.currency
+                              : 'ج.م'
+                            : item.currency || 'EGP'}
+                        </span>
+                        {item.unit ? (
+                          <span className="text-[11px] text-[var(--muted)]">
+                            / {item.unit}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <a
+                        href={itemHref}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleOpenItem(item);
+                        }}
+                        className="btn-secondary py-2.5 px-4 text-xs font-medium text-center inline-flex items-center justify-center gap-1.5"
+                      >
+                        <ExternalLink size={14} strokeWidth={1.5} />
+                        <span>
+                          {lang === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+                        </span>
+                      </a>
+
+                      <button
+                        type="button"
+                        onClick={() => onBuyItem(item)}
+                        className="uiverse-btn w-full py-2.5 px-4 text-xs font-semibold cursor-pointer"
+                      >
+                        <ShoppingBag size={15} strokeWidth={1.5} />
+                        <span>
+                          {lang === 'ar' ? 'شراء وطلب الآن' : 'Order Now'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
+    </section>
+  );
+};

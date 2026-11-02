@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /orders
+Disallow: /track-order
+
+Sitemap: https://www.egcoffee.pro/sitemap.xml
