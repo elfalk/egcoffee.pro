@@ -1,0 +1,39 @@
+# Egyptian Coffee Trade (تجارة القهوة المصرية)
+
+> Egyptian Coffee Trade (تجارة القهوة المصرية) is a specialized Arabic reference platform, digital educational academy, and technical toolkit dedicated to green coffee trade, commercial roasting science, coffee blend engineering, and roastery economics in Egypt and the Arab world.
+
+Egyptian Coffee Trade provides coffee roasters, traders, cafe owners, and researchers with authoritative Arabic publications (The Seven Books Series), accredited professional training courses, interactive roastery cost and blend calculators, and comprehensive encyclopedias covering global green coffee origins and commercial coffee blends.
+
+## Core Platform & Digital Marketplace
+
+- [Homepage](https://www.egcoffee.pro/): Main portal featuring live coffee market indicators, educational book series, professional courses, smart roastery calculators, and industry research.
+- [Digital Store & Marketplace](https://www.egcoffee.pro/marckt): Official marketplace for purchasing digital coffee reference books, complete encyclopedic bundles, and specialized training courses.
+- [Store Catalog](https://www.egcoffee.pro/store): Direct catalog view of available educational publications and digital coffee trade products.
+
+## Digital Reference Books & Training Courses
+
+- [The Seven Coffee Reference Books Library](https://www.egcoffee.pro/books): Comprehensive Arabic book series covering the history and origins of coffee, coffee chemistry and botany, roasting science and thermal physics, commercial blend engineering, grinding and extraction technology, Turkish and espresso preparation standards, and coffee project feasibility and management.
+- [Professional Coffee Training Courses](https://www.egcoffee.pro/courses): Specialized educational courses in coffee roasting, cup tasting and sensory evaluation, blend formulation, and commercial coffee operations.
+
+## Green Coffee Origins & Blends Encyclopedias
+
+- [Green Coffee Beans & Global Origins Encyclopedia](https://www.egcoffee.pro/coffee-beans): Detailed technical profiles of Arabica and Robusta green coffee origins (including Brazil, Colombia, Ethiopia, Vietnam, India, Indonesia, Uganda, and Yemen), covering altitude, processing methods, screen sizes, moisture, density, caffeine ratios, sensory notes, and recommended roasting profiles.
+- [Commercial Coffee Blends Encyclopedia](https://www.egcoffee.pro/coffee-blends): Standardized reference guide to commercial and specialty coffee blends (Turkish coffee blends, commercial espresso blends, Italian-style blends, and creama-focused formulations) with exact Arabica-to-Robusta ratios, crema and body ratings, and target flavor profiles.
+
+## Smart Roastery & Blend Calculators
+
+- [Roastery & Coffee Calculators Hub](https://www.egcoffee.pro/calculators): Interactive suite of engineering and financial calculators built for coffee roasteries and blend formulators.
+- [Coffee Blend Engineering & Cost Calculator](https://www.egcoffee.pro/calculators/blend-calculator): Interactive tool to design multi-origin coffee blends, calculate weighted green cost, estimate caffeine content, and evaluate crema, body, acidity, and sensory balance.
+- [Coffee Roasting Weight Loss Calculator](https://www.egcoffee.pro/calculators/roasting-loss): Technical calculator to measure green-to-roasted weight loss percentage (الفاقد الحراري), moisture loss, and net roasted yield per batch.
+- [Net Roasted Coffee Cost Calculator](https://www.egcoffee.pro/calculators/roasted-coffee-cost): Financial calculator to determine the exact net cost per kilogram of roasted coffee after accounting for green bean prices, roasting weight loss, packaging, and operating expenses.
+
+## Industry Research & Specialized Articles
+
+- [Coffee Science & Trade Articles](https://www.egcoffee.pro/articles): In-depth Arabic articles, market analyses, and technical guides on green coffee importing, storage standards, roasting defects, and commercial blend optimization.
+
+## Company Information & Site Discovery
+
+- [About Egyptian Coffee Trade](https://www.egcoffee.pro/about): Background, mission, and methodology of Egyptian Coffee Trade in advancing Arabic coffee knowledge and roastery standards.
+- [Contact Us](https://www.egcoffee.pro/contact): Official communication channels and support contact details for inquiries, consultations, and educational partnerships.
+- [Privacy Policy & Terms of Use](https://www.egcoffee.pro/privacy): Data protection policy, intellectual property rights for digital books and courses, and platform terms of service.
+- [XML Sitemap](https://www.egcoffee.pro/sitemap.xml): Complete machine-readable index of public pages, books, courses, articles, origins, blends, and calculators.
